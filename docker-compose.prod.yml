@@ -2,7 +2,7 @@ version: '3.8'
 services:
   web:
     build:
-      context: .
+      context: backend
       dockerfile: Dockerfile
     container_name: pdf_adviser_api
     environment:
@@ -12,6 +12,7 @@ services:
     depends_on:
       - db
     restart: always
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
   db:
     image: postgres:latest
@@ -26,5 +27,19 @@ services:
       - "5432:5432"
     restart: always
 
+  minio:
+    image: minio/minio:latest
+    container_name: pdf_adviser_minio_prod
+    environment:
+      MINIO_ROOT_USER: minio_user
+      MINIO_ROOT_PASSWORD: minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001" # for MinIO Console
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+
 volumes:
   pgdata:
+  miniodata:
