@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 
+from controllers import chat_history_controller
+
 app = FastAPI()
+
+app.include_router(chat_history_controller.chat_history_router)
 
 
 @app.get("/")
