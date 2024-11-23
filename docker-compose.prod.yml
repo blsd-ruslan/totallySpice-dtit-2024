@@ -6,8 +6,8 @@ services:
       dockerfile: Dockerfile
     container_name: pdf_adviser_api
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@pdf_adviser_db_prod:5432/pdf_adviser_app
-      - MINIO_URL=pdf_adviser_minio_prod:9000
+      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/pdf_adviser_app
+      - MINIO_URL=minio:9000
       - MINIO_USER=minio_user
       - MINIO_PASSWORD=minio_password
     ports:
