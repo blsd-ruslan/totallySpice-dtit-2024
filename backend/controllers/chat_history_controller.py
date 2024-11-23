@@ -1,18 +1,8 @@
 from fastapi import APIRouter
+from services.history_service import get_history_by_username
 
 chat_history_router = APIRouter()
 
 @chat_history_router.get("/chat_history")
 async def get_chat_history():
-    return [
-        "Chatter Chronicles",
-        "Pixel Talk Archives",
-        "Echo Threads",
-        "Texted Tales",
-        "Whispered Words",
-        "Memory Bytes",
-        "Dialogue Diary",
-        "Message Maze",
-        "Threaded Moments",
-        "Chat Capsule"
-    ]
+    return await get_history_by_username("test_user")
