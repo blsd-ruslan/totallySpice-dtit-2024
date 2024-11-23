@@ -1,0 +1,30 @@
+version: '3.8'
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pdf_adviser_api
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@postgres_db:5432/pdf_adviser_app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    image: postgres:latest
+    container_name: pdf_adviser_db_prod
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pdf_adviser_app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+
+volumes:
+  pgdata:
