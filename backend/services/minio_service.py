@@ -32,3 +32,15 @@ async def upload_file_to_minio(file):
         )
     except S3Error as err:
         raise Exception(f"Failed to upload {file.filename}: {str(err)}")
+
+
+# Get file from MinIO
+def get_file_from_minio(file_name):
+    try:
+        response = MINIO_CLIENT.get_object(BUCKET_NAME, file_name)
+        file_data = response.read()
+        response.close()
+        response.release_conn()
+        return file_data
+    except S3Error as err:
+        raise Exception(f"Failed to download {file_name}: {str(err)}")

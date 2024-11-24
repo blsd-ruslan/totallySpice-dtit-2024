@@ -1,9 +1,11 @@
 import os
+from io import BytesIO
 
 import fitz
 from openai import OpenAI
 import json
 
+from services.minio_service import get_file_from_minio
 from utils.environment_variables import OPEN_API_KEY
 
 
@@ -25,9 +27,17 @@ class PDFProcessor:
         self.knowledge_base = []
         self.client = OpenAI(api_key=OPEN_API_KEY)
 
+    def open_file(self):
+        file_data = get_file_from_minio(self.pdf_path)
+        pdf_data = BytesIO(file_data)
+        pdf_document = fitz.open(stream=pdf_data, filetype="pdf")
+        return pdf_document
+
     def extract_fields(self):
         self.fields = []
-        pdf_document = fitz.open(self.pdf_path)
+        # file_data = get_file_from_minio(self.pdf_path)
+        # pdf_data = BytesIO(file_data)
+        pdf_document = self.open_file()
 
         for page_number in range(len(pdf_document)):
             page = pdf_document[page_number]
@@ -104,7 +114,7 @@ class PDFProcessor:
                 self.anomalous_fields.append(field)
 
     def annotate_pdf(self):
-        pdf_document = fitz.open(self.pdf_path)
+        pdf_document = self.open_file()
 
         for field in self.anomalous_fields:
             page_number = field.page_number

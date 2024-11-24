@@ -23,7 +23,7 @@ class ChatRequest(BaseModel):
     user_query: str
 
 
-@ml_router.get("/get_processed_doc")
+# @ml_router.get("/get_processed_doc")
 async def get_processed_doc():
     processor.process_pdf()
     file_path = output_pdf_path
