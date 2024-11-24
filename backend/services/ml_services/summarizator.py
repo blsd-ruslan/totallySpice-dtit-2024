@@ -2,6 +2,8 @@ import os
 
 import fitz
 from openai import OpenAI
+import json
+
 
 class Field:
     def __init__(self, field_name, field_value, page_number, position):
@@ -11,33 +13,30 @@ class Field:
         self.position = position  # Rectangle area of the form field
         self.reason = None  # To store the reason if the field is invalid
 
+
 class PDFProcessor:
     def __init__(self, pdf_path, output_pdf_path, openai_api_key):
         self.pdf_path = pdf_path
         self.output_pdf_path = output_pdf_path
         self.fields = []
         self.anomalous_fields = []
-        # Instantiate the OpenAI client with your API key
-        print(openai_api_key)
+        self.knowledge_base = []
         self.client = OpenAI(api_key=openai_api_key)
 
     def extract_fields(self):
-        """
-        Extracts all fillable form fields from a PDF and retrieves their positions.
-        """
         pdf_document = fitz.open(self.pdf_path)
 
         for page_number in range(len(pdf_document)):
             page = pdf_document[page_number]
-            widgets = page.widgets()  # Retrieves form fields (widgets) on the page
+            widgets = page.widgets()
 
             if not widgets:
-                continue  # Skip pages without form fields
+                continue
 
             for widget in widgets:
-                field_name = widget.field_name  # Name of the form field
-                field_value = widget.field_value  # Value of the form field
-                rect = widget.rect  # Rectangle area of the form field
+                field_name = widget.field_name
+                field_value = widget.field_value
+                rect = widget.rect
 
                 field = Field(
                     field_name=field_name,
@@ -50,59 +49,58 @@ class PDFProcessor:
         pdf_document.close()
 
     def validate_fields(self):
-        """
-        Validates each field's value based on its name using the OpenAI API.
-        Updates the anomalous_fields list with fields that are invalid.
-        """
         for field in self.fields:
             field_name = field.field_name
             field_value = field.field_value
 
             prompt = f"""
-You are an expert data validator. Given the field name and its value, determine if the value is appropriate for the field.
+    You are an expert data validator. Given the field name and its value, determine if the value is appropriate for the field.
 
-Respond in the following format:
-- If the value is appropriate, respond with 'Valid'.
-- If the value is not appropriate, respond with 'Invalid: [Reason]', where [Reason] is a brief explanation.
+    Respond in the following format:
+    - If the value is appropriate, respond with 'Valid'.
+    - If the value is not appropriate, respond with 'Invalid: [Reason]', where [Reason] is a brief explanation.
 
-Field Name: {field_name}
-Field Value: {field_value}
+    Field Name: {field_name}
+    Field Value: {field_value}
 
-Is the field value appropriate for the field name?
-"""
+    Is the field value appropriate for the field name?
+    """
             try:
                 response = self.client.chat.completions.create(
                     model="gpt-4o",
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=[{"role": "user", "content": prompt}],
                     max_tokens=50,
                     temperature=0,
                 )
                 validation = response.choices[0].message.content.strip()
 
                 if validation.lower().startswith('valid'):
-                    # Field is valid, do nothing
                     continue
                 elif validation.lower().startswith('invalid'):
-                    # Extract the reason
                     reason = validation.partition(':')[2].strip()
                     field.reason = reason
                     self.anomalous_fields.append(field)
+                    self.knowledge_base.append({
+                        "field_name": field_name,
+                        "field_value": field_value,
+                        "reason": reason,
+                        "coordinates": {
+                            "x0": field.position.x0,
+                            "y0": field.position.y0,
+                            "x1": field.position.x1,
+                            "y1": field.position.y1,
+                        },
+                        "page_number": field.page_number + 1  # Convert to 1-based index
+                    })
                 else:
-                    # Unexpected response, treat as anomaly
                     field.reason = 'Validation response not understood.'
                     self.anomalous_fields.append(field)
             except Exception as e:
                 print(f"Error validating field '{field_name}': {e}")
-                # Optionally, treat as anomaly if validation fails
                 field.reason = f"Exception occurred: {e}"
                 self.anomalous_fields.append(field)
 
     def annotate_pdf(self):
-        """
-        Draws red bounding boxes around anomalous fields and saves the modified PDF.
-        """
         pdf_document = fitz.open(self.pdf_path)
 
         for field in self.anomalous_fields:
@@ -111,22 +109,19 @@ Is the field value appropriate for the field name?
             reason = field.reason or 'No reason provided.'
 
             page = pdf_document[page_number]
-            # Draw a red rectangle around the anomalous field
             page.draw_rect(rect, color=(1, 0, 0), width=1)
-            # Optionally, add a text annotation with the reason
             annot = page.add_text_annot(rect, reason)
             annot.set_colors(stroke=(1, 0, 0))
             annot.update()
 
-        # Save the modified PDF with red bounding boxes
         pdf_document.save(self.output_pdf_path)
         pdf_document.close()
 
+    def save_knowledge_base(self, path="knowledge_base.json"):
+        with open(path, "w") as f:
+            json.dump(self.knowledge_base, f, indent=4)
+
     def process_pdf(self):
-        """
-        Orchestrates the PDF processing: extraction, validation, and annotation.
-        """
-        # Step 1: Extract all fields from the PDF
         self.extract_fields()
         if not self.fields:
             print("No fields found in the PDF.")
@@ -134,25 +129,98 @@ Is the field value appropriate for the field name?
 
         print(f"Found {len(self.fields)} fields. Validating with OpenAI API...")
 
-        # Step 2: Validate fields with OpenAI
         self.validate_fields()
         print(f"Detected {len(self.anomalous_fields)} anomalous fields.")
 
-        # Step 3: Draw red bounding boxes around anomalous fields
         self.annotate_pdf()
         print(f"Anomalies have been highlighted in '{self.output_pdf_path}'.")
 
-        # Optionally, print the anomalies with reasons
-        for field in self.anomalous_fields:
-            print(f"Page {field.page_number + 1}, Field '{field.field_name}': {field.reason}")
+        self.save_knowledge_base()
+        print(f"Knowledge base saved to 'knowledge_base.json'.")
+
+
+class ChatProcessor:
+    def __init__(self, knowledge_base_path, openai_api_key):
+        self.knowledge_base_path = knowledge_base_path
+        self.client = OpenAI(api_key=openai_api_key)
+        self.load_knowledge_base()
+        self.sessions = {}  # To store conversation history for each session
+
+    def load_knowledge_base(self):
+        try:
+            with open(self.knowledge_base_path, "r") as f:
+                self.knowledge_base = json.load(f)
+        except FileNotFoundError:
+            self.knowledge_base = []
+        print(self.knowledge_base)
+
+    def get_response(self, user_query, session_id):
+        if session_id not in self.sessions:
+            self.sessions[session_id] = []
+
+        # Add user query to session history
+        self.sessions[session_id].append({"role": "user", "content": user_query})
+
+        # Build context from the knowledge base
+        anomalies_summary = "\n".join([
+            f"- Field '{item['field_name']}' on page {item['page_number']}: {item['reason']}"
+            for item in self.knowledge_base
+        ])
+
+        context = f"""
+    The following anomalies were detected in the document:
+    {anomalies_summary}
+
+    User Query: {user_query}
+
+    Respond to the query using the context above.
+    """
+        # Add the context as a system message at the start of the session
+        if len(self.sessions[session_id]) == 1:  # First interaction
+            self.sessions[session_id].insert(0, {"role": "system", "content": context})
+
+        try:
+            # Generate response
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=self.sessions[session_id],
+                max_tokens=2000,
+                temperature=0.7,
+            )
+            assistant_response = response.choices[0].message.content.strip()
+
+            # Add assistant response to session history
+            self.sessions[session_id].append({"role": "assistant", "content": assistant_response})
+
+            return assistant_response
+        except Exception as e:
+            return f"Error during chat: {e}"
+
 
 if __name__ == "__main__":
     # Path to the PDF
     pdf_path = "new.pdf"
     output_pdf_path = "new_with_anomalies.pdf"
-    openai_api_key = os.environ.get("OPENAI_API")
-
+    openai_api_key = os.getenv("OPENAI_API")
+    knowledge_base_path = "knowledge_base.json"
     # Instantiate the PDFProcessor
     processor = PDFProcessor(pdf_path, output_pdf_path, openai_api_key)
     # Process the PDF
     processor.process_pdf()
+
+    chat_processor = ChatProcessor(knowledge_base_path, openai_api_key)
+    session_id = "user_1234"  # Unique session identifier
+    print("\nStarting chat session...")
+
+    # Step 3: Simulate user queries and assistant responses
+    messages = [
+        "What anomalies were found in the document?",
+        "Can you explain the issue with the field 'Place of birth'?",
+    ]
+
+    for i, message in enumerate(messages):
+        print(f"\nUser ({i + 1}): {message}")
+        response = chat_processor.get_response(message, session_id)
+        print(f"Assistant ({i + 1}): {response}")
+
+    print("\nChat session ended.")
