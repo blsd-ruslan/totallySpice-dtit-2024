@@ -117,7 +117,7 @@ class PDFProcessor:
         pdf_document.save(self.output_pdf_path)
         pdf_document.close()
 
-    def save_knowledge_base(self, path="knowledge_base.json"):
+    def save_knowledge_base(self, path="services/ml_services/docs/knowledge_base.json"):
         with open(path, "w") as f:
             json.dump(self.knowledge_base, f, indent=4)
 
@@ -136,7 +136,7 @@ class PDFProcessor:
         print(f"Anomalies have been highlighted in '{self.output_pdf_path}'.")
 
         self.save_knowledge_base()
-        print(f"Knowledge base saved to 'knowledge_base.json'.")
+        print(f"Knowledge base saved to 'services/ml_services/docs/knowledge_base.json'.")
 
 
 class ChatProcessor:
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     pdf_path = "new.pdf"
     output_pdf_path = "new_with_anomalies.pdf"
     openai_api_key = os.getenv("OPENAI_API")
-    knowledge_base_path = "knowledge_base.json"
+    knowledge_base_path = "docs/knowledge_base.json"
     # Instantiate the PDFProcessor
     processor = PDFProcessor(pdf_path, output_pdf_path, openai_api_key)
     # Process the PDF

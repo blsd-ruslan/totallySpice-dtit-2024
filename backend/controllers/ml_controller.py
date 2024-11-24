@@ -15,7 +15,7 @@ openai_api_key = os.getenv("OPENAI_API")
 
 # Initialize processors
 processor = PDFProcessor(pdf_path, output_pdf_path, openai_api_key)
-chat_processor = ChatProcessor(knowledge_base_path, openai_api_key)
+
 
 
 class ChatRequest(BaseModel):
@@ -42,5 +42,6 @@ async def chat_with_pdf(request: ChatRequest):
     """
     Interact with the assistant using session memory.
     """
+    chat_processor = ChatProcessor(knowledge_base_path, openai_api_key)
     response = chat_processor.get_response(request.user_query, request.session_id)
     return {"response": response}
