@@ -4,14 +4,11 @@ import type { Attachment, Message } from 'ai';
 import { useChat } from 'ai/react';
 import { AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import useSWR, { useSWRConfig } from 'swr';
 import { useWindowSize } from 'usehooks-ts';
 
 import { ChatHeader } from '@/components/chat-header';
 import { PreviewMessage, ThinkingMessage } from '@/components/message';
 import { useScrollToBottom } from '@/components/use-scroll-to-bottom';
-import type { Vote } from '@/lib/db/schema';
-import { fetcher } from '@/lib/utils';
 
 import { Block, type UIBlock } from './block';
 import { BlockStreamHandler } from './block-stream-handler';
@@ -30,8 +27,6 @@ export function Chat({
   initialMessages: Array<Message>;
   selectedModelId: string;
 }) {
-  const { mutate } = useSWRConfig();
-
   const {
     messages,
     setMessages,
@@ -45,9 +40,6 @@ export function Chat({
   } = useChat({
     body: { id, modelId: selectedModelId },
     initialMessages,
-    onFinish: () => {
-      mutate('/api/history');
-    },
   });
 
   const { width: windowWidth = 1920, height: windowHeight = 1080 } =
@@ -67,17 +59,10 @@ export function Chat({
     },
   });
 
-  const { data: votes } = useSWR<Array<Vote>>(
-    `/api/vote?chatId=${id}`,
-    fetcher,
-  );
-
   const [messagesContainerRef, messagesEndRef] =
     useScrollToBottom<HTMLDivElement>();
-
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
-
-  const testPdf = "/documents/ew.pdf";
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   return (
     <>
@@ -85,21 +70,21 @@ export function Chat({
         <ChatHeader selectedModelId={selectedModelId} />
         <div
           ref={messagesContainerRef}
-          className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4"
+          className="flex flex-col min-w-0 flex-1 overflow-y-scroll pt-4"
         >
           {messages.length === 0 && <Overview />}
 
           {messages.length > 0 && (
               <Flex gap="3">
                 <Card
-                    className='p-2 rounded-2xl border-2 border-solid flex flex-col max-h-[700px]'
+                    className='p-2 rounded-2xl border-2 border-solid flex flex-col h-[700px]'
                 >
                   <div
                       style={{
                         overflowY: 'auto',  // Enable vertical scrolling
                         padding: '1rem',    // Optional: Add some padding for better appearance
                       }}
-                      className='rounded-2xl'
+                      className='overflow-y-auto rounded-2xl space-y-4'
                   >
                     {messages.map((message, index) => (
                         <PreviewMessage
@@ -109,20 +94,17 @@ export function Chat({
                             block={block}
                             setBlock={setBlock}
                             isLoading={isLoading && messages.length - 1 === index}
-                            vote={
-                              votes
-                                  ? votes.find((vote) => vote.messageId === message.id)
-                                  : undefined
-                            }
                         />
                     ))}
                   </div>
                 </Card>
 
-                <PDFViewer
-                    pdfUrl={testPdf}
-                    title="Sample Document"
-                />
+                {pdfUrl &&
+                    <PDFViewer
+                        pdfUrl={pdfUrl}
+                        title="Analyzed Document"
+                    />
+                }
               </Flex>
           )
           }
@@ -151,6 +133,7 @@ export function Chat({
               setAttachments={setAttachments}
               messages={messages}
               setMessages={setMessages}
+              setPdfUrl={setPdfUrl}
               append={append}
           />
         </form>
@@ -172,7 +155,6 @@ export function Chat({
             setBlock={setBlock}
             messages={messages}
             setMessages={setMessages}
-            votes={votes}
           />
         )}
       </AnimatePresence>

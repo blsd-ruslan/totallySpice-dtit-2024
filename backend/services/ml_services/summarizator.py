@@ -97,12 +97,12 @@ class PDFProcessor:
                         "field_name": field_name,
                         "field_value": field_value,
                         "reason": reason,
-                        "coordinates": {
-                            "x0": field.position.x0,
-                            "y0": field.position.y0,
-                            "x1": field.position.x1,
-                            "y1": field.position.y1,
-                        },
+                        # "coordinates": {
+                        #     "x0": field.position.x0,
+                        #     "y0": field.position.y0,
+                        #     "x1": field.position.x1,
+                        #     "y1": field.position.y1,
+                        # },
                         "page_number": field.page_number + 1  # Convert to 1-based index
                     })
                 else:

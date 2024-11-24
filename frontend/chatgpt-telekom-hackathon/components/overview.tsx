@@ -18,7 +18,7 @@ export const Overview = () => {
         <p className="flex flex-row justify-center gap-4 items-center">
           <MagentaLogo size={48} />
         </p>
-        <p>Ask help about documents</p>
+        <p className="dark:text-white">Ask help about documents</p>
       </div>
     </motion.div>
   );

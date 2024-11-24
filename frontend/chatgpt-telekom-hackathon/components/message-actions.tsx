@@ -18,12 +18,10 @@ import {
 export function MessageActions({
   chatId,
   message,
-  vote,
   isLoading,
 }: {
   chatId: string;
   message: Message;
-  vote: Vote | undefined;
   isLoading: boolean;
 }) {
   const { mutate } = useSWRConfig();
@@ -57,7 +55,6 @@ export function MessageActions({
           <TooltipTrigger asChild>
             <Button
               className="py-1 px-2 h-fit text-muted-foreground !pointer-events-auto"
-              disabled={vote?.isUpvoted}
               variant="outline"
               onClick={async () => {
                 const messageId = getMessageIdFromAnnotations(message);
@@ -112,7 +109,6 @@ export function MessageActions({
             <Button
               className="py-1 px-2 h-fit text-muted-foreground !pointer-events-auto"
               variant="outline"
-              disabled={vote && !vote.isUpvoted}
               onClick={async () => {
                 const messageId = getMessageIdFromAnnotations(message);
 

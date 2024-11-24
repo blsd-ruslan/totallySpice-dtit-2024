@@ -30,19 +30,6 @@ import {PreviewAttachment} from './preview-attachment';
 import {Button} from './ui/button';
 import {Textarea} from './ui/textarea';
 
-const suggestedActions = [
-    {
-        title: 'What is the weather',
-        label: 'in San Francisco?',
-        action: 'What is the weather in San Francisco?',
-    },
-    {
-        title: 'Help me draft an essay',
-        label: 'about Silicon Valley',
-        action: 'Help me draft a short essay about Silicon Valley',
-    },
-];
-
 export function MultimodalInput({
                                     chatId,
                                     input,
@@ -56,6 +43,7 @@ export function MultimodalInput({
                                     append,
                                     handleSubmit,
                                     className,
+                                    setPdfUrl,
                                 }: {
     chatId: string;
     input: string;
@@ -66,6 +54,7 @@ export function MultimodalInput({
     setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
     messages: Array<Message>;
     setMessages: Dispatch<SetStateAction<Array<Message>>>;
+    setPdfUrl: (url: string | null) => void;
     append: (
         message: Message | CreateMessage,
         chatRequestOptions?: ChatRequestOptions,
@@ -139,7 +128,6 @@ export function MultimodalInput({
         }
 
         setSelectedFiles((prev) => {
-            console.log('im here')
             const newFiles = [...prev, ...files];
             if (newFiles.length > 2) {
                 toast.error('You can only upload a maximum of 2 PDFs!');
@@ -160,28 +148,76 @@ export function MultimodalInput({
         formData.append('instruction_document', selectedFiles[1]);
 
         try {
-            const response = await fetch('http://localhost:8000/upload_pdfs', {
+            // Step 1: Upload PDFs to `/process_pdf`
+            const pdfResponse = await fetch('http://localhost:8000/process_pdf', {
                 method: 'POST',
-                headers: {
-                    accept: 'application/json',
-                },
+                headers: { accept: 'application/pdf' },
                 body: formData,
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                toast.success('Files uploaded successfully!');
-                console.log(data); // Handle the response as needed
-                setSelectedFiles([]); // Clear files on success
+            if (!pdfResponse.ok) {
+                toast.error('PDF upload failed!');
+                return;
+            }
+
+            // Extract the PDF blob
+            const pdfBlob = await pdfResponse.blob();
+            const pdfUrl = URL.createObjectURL(pdfBlob); // Create a URL for the PDF blob
+            setPdfUrl(pdfUrl);
+            // setAttachments((prev) => [
+            //     ...prev,
+            //     { url: pdfUrl, name: 'Processed PDF', contentType: 'application/pdf' },
+            // ]);
+
+            // Step 2: Send text input to `/chat`
+            const chatResponse = await fetch('http://localhost:8000/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    accept: 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: '1',
+                    user_query: input,
+                }),
+            });
+
+            if (chatResponse.ok) {
+                const chatData = await chatResponse.json();
+
+                const messageUser : Message = {
+                    id: crypto.randomUUID(), // Generate a unique ID
+                    role: 'user',
+                    content: input,
+                    createdAt: new Date(), // Set the current time
+                };
+
+
+                // Create a new Message object
+                const newMessage : Message = {
+                    id: crypto.randomUUID(), // Generate a unique ID
+                    role: 'assistant',
+                    content: chatData.response,
+                    createdAt: new Date(), // Set the current time
+                };
+
+
+                // Update messages with the new message
+                setMessages((prevMessages) => [...prevMessages, messageUser, newMessage]);
+
+                toast.success('Message sent successfully!');
+                console.log('Chat Response:', chatData);
+                setInput(''); // Clear the input field
+                setSelectedFiles([]); // Clear file selection and remove preview
             } else {
-                const error = await response.json();
-                toast.error(`Upload failed: ${error.message}`);
+                const errorData = await chatResponse.json();
+                toast.error(`Text submission failed: ${errorData.message}`);
             }
         } catch (error) {
-            console.error('Error uploading files:', error);
-            toast.error('Failed to upload files, please try again.');
+            console.error('Error:', error);
+            toast.error('An error occurred. Please try again.');
         }
-    }, [selectedFiles]);
+    }, [selectedFiles, input, setInput, setMessages, setAttachments]);
 
 
     return (
@@ -236,7 +272,7 @@ export function MultimodalInput({
                 value={input}
                 onChange={handleInput}
                 className={cx(
-                    'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-3xl text-base bg-muted',
+                    'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-3xl text-base dark:text-white bg-muted',
                     className,
                 )}
                 rows={3}
@@ -279,7 +315,7 @@ export function MultimodalInput({
             )}
 
             <Button
-                className="rounded-full p-1.5 h-fit absolute bottom-2 right-11 m-0.5 dark:border-zinc-700"
+                className="rounded-full p-1.5 h-fit absolute bottom-2 right-11 m-0.5 dark:border-zinc-700 dark:bg-transparent dark:hover:bg-gray-500"
                 onClick={(event) => {
                     event.preventDefault();
                     fileInputRef.current?.click();

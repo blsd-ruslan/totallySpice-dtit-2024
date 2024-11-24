@@ -20,14 +20,12 @@ export const PreviewMessage = ({
   message,
   block,
   setBlock,
-  vote,
   isLoading,
 }: {
   chatId: string;
   message: Message;
   block: UIBlock;
   setBlock: Dispatch<SetStateAction<UIBlock>>;
-  vote: Vote | undefined;
   isLoading: boolean;
 }) => {
   return (
@@ -147,7 +145,6 @@ export const PreviewMessage = ({
                 key={`action-${message.id}`}
                 chatId={chatId}
                 message={message}
-                vote={vote}
                 isLoading={isLoading}
             />
           </div>
