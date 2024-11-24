@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
-from controllers import chat_history_controller, upload_pdf_controller
+from controllers import ml_controller, chat_history_controller, upload_pdf_controller
 from utils import create_db_tables
 
 app = FastAPI()
@@ -18,6 +18,7 @@ app.add_middleware(
 
 app.include_router(chat_history_controller.chat_history_router)
 app.include_router(upload_pdf_controller.upload_pdf_router)
+app.include_router(ml_controller.ml_router)
 
 # Startup event to initialize the database
 @app.on_event("startup")
