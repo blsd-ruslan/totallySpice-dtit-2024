@@ -4,6 +4,8 @@ import fitz
 from openai import OpenAI
 import json
 
+from utils.environment_variables import OPEN_API_KEY
+
 
 class Field:
     def __init__(self, field_name, field_value, page_number, position):
@@ -15,15 +17,16 @@ class Field:
 
 
 class PDFProcessor:
-    def __init__(self, pdf_path, output_pdf_path, openai_api_key):
+    def __init__(self, pdf_path, output_pdf_path):
         self.pdf_path = pdf_path
         self.output_pdf_path = output_pdf_path
         self.fields = []
         self.anomalous_fields = []
         self.knowledge_base = []
-        self.client = OpenAI(api_key=openai_api_key)
+        self.client = OpenAI(api_key=OPEN_API_KEY)
 
     def extract_fields(self):
+        self.fields = []
         pdf_document = fitz.open(self.pdf_path)
 
         for page_number in range(len(pdf_document)):
@@ -140,9 +143,9 @@ class PDFProcessor:
 
 
 class ChatProcessor:
-    def __init__(self, knowledge_base_path, openai_api_key):
+    def __init__(self, knowledge_base_path):
         self.knowledge_base_path = knowledge_base_path
-        self.client = OpenAI(api_key=openai_api_key)
+        self.client = OpenAI(api_key=OPEN_API_KEY)
         self.load_knowledge_base()
         self.sessions = {}  # To store conversation history for each session
 
